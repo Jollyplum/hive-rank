@@ -19,12 +19,14 @@ import org.apache.hadoop.hive.ql.exec.UDFArgumentException;
 import org.apache.hadoop.hive.ql.metadata.HiveException;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDF;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
 
 public class Rank extends GenericUDF {
 
   private long counter;
   private Object[] previousKey;
+  private ObjectInspector[] ois;
 
   @Override
   public Object evaluate(DeferredObject[] currentKey) throws HiveException {
@@ -43,6 +45,7 @@ public class Rank extends GenericUDF {
 
   @Override
   public ObjectInspector initialize(ObjectInspector[] arg0) throws UDFArgumentException {
+    ois=arg0;
     return PrimitiveObjectInspectorFactory.javaLongObjectInspector;
   }
 
@@ -55,13 +58,10 @@ public class Rank extends GenericUDF {
   private void copyToPreviousKey(DeferredObject[] currentKey) throws HiveException {
     if (currentKey != null) {
       previousKey = new Object[currentKey.length];
-      for (int index = 0; index < currentKey.length; index++) {
-        previousKey[index] = String.valueOf(currentKey[index].get());
-        //System.out.println("####################Key Class:" + String.valueOf(previousKey[index])
-        //+ ":Instance:"  + previousKey[index].getClass());
+      for (int index = 0; index < currentKey.length; index++) {   
+        previousKey[index]= ObjectInspectorUtils.copyToStandardObject(currentKey[index],this.ois[index]);
       }
-    }
-    //System.out.println("##############Previous Key Set As::" + Arrays.toString(previousKey));
+    }   
   }
 
   /**
@@ -83,16 +83,13 @@ public class Rank extends GenericUDF {
     //individual elements are same then we can classify as same
     if (currentKey != null && previousKey != null && currentKey.length == previousKey.length) {
       for (int index = 0; index < currentKey.length; index++) {
-        String currentElement = String.valueOf(currentKey[index].get());
-        //System.out.println("######Current Element:" + currentElement + "##### Past:" + previousK
-        //ey[index]);
-        if (!previousKey[index].equals(currentElement)) {
+        if (ObjectInspectorUtils.compare(currentKey[index].get().toString(), this.ois[index],
+                previousKey[index], this.ois[index]) != 0) {
           return false;
         }
       }
       status = true;
     }
-
     return status;
   }
 }
