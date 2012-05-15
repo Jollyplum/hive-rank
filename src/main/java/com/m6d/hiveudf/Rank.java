@@ -19,8 +19,12 @@ import org.apache.hadoop.hive.ql.exec.UDFArgumentException;
 import org.apache.hadoop.hive.ql.metadata.HiveException;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDF;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.ObjectInspectorOptions;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Writable;
 
 public class Rank extends GenericUDF {
 
@@ -59,7 +63,9 @@ public class Rank extends GenericUDF {
     if (currentKey != null) {
       previousKey = new Object[currentKey.length];
       for (int index = 0; index < currentKey.length; index++) {   
-        previousKey[index]= ObjectInspectorUtils.copyToStandardObject(currentKey[index],this.ois[index]);
+        previousKey[index]= ObjectInspectorUtils
+                .copyToStandardObject(currentKey[index].get(),this.ois[index]);
+
       }
     }   
   }
@@ -83,10 +89,14 @@ public class Rank extends GenericUDF {
     //individual elements are same then we can classify as same
     if (currentKey != null && previousKey != null && currentKey.length == previousKey.length) {
       for (int index = 0; index < currentKey.length; index++) {
-        if (ObjectInspectorUtils.compare(currentKey[index].get().toString(), this.ois[index],
-                previousKey[index], this.ois[index]) != 0) {
+
+        if (ObjectInspectorUtils.compare(currentKey[index].get(), this.ois[index],
+                previousKey[index],
+                ObjectInspectorFactory.getReflectionObjectInspector(previousKey[index].getClass(), ObjectInspectorOptions.JAVA)) != 0) {
+
           return false;
         }
+
       }
       status = true;
     }
