@@ -15,6 +15,7 @@ limitations under the License.
 */
 package com.m6d.hiveudf;
 
+import org.apache.hadoop.hive.ql.exec.Description;
 import org.apache.hadoop.hive.ql.exec.UDFArgumentException;
 import org.apache.hadoop.hive.ql.metadata.HiveException;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDF;
@@ -26,6 +27,9 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectIn
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Writable;
 
+
+@Description(name = "p_rank", value = "_FUNC_(col1, col2, .., coln) - Returns the rank of current row, "
++ "when some column differs from one row to the next the rank is reset to 1.")
 public class Rank extends GenericUDF {
 
   private long counter;
@@ -85,15 +89,25 @@ public class Rank extends GenericUDF {
       status = true;
     }
 
-    //if both are not null and there legnth as well as
+    //if both are not null and there length as well as
     //individual elements are same then we can classify as same
     if (currentKey != null && previousKey != null && currentKey.length == previousKey.length) {
       for (int index = 0; index < currentKey.length; index++) {
 
-        if (ObjectInspectorUtils.compare(currentKey[index].get(), this.ois[index],
-                previousKey[index],
-                ObjectInspectorFactory.getReflectionObjectInspector(previousKey[index].getClass(), ObjectInspectorOptions.JAVA)) != 0) {
-
+        // avoid calling previousKey[index].getClass() when previousKey[index] is null
+        if (previousKey[index] != null) { 
+          if (ObjectInspectorUtils.compare(currentKey[index].get(), this.ois[index], previousKey[index],      
+            ObjectInspectorFactory.getReflectionObjectInspector(previousKey[index].getClass(), ObjectInspectorOptions.JAVA)) != 0) {
+                
+            return false;
+          } else {
+            continue;
+          }
+        // Both objects are null
+        } else if (currentKey[index].get() == null ) {
+          continue;
+        // current is not null but previous is
+        } else {
           return false;
         }
 
